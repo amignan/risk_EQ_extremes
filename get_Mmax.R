@@ -404,7 +404,7 @@ for(i in 1:nflt){
 }
 map <- get_map(location=c(region[1],region[3],region[2],region[4]), source='stamen',
   maptype='watercolor', crop=T)
-pdf(paste(wd, "/", figd,"/fig_original_map(mech)_new.pdf", sep=""))
+pdf(paste(wd, "/", figd,"/fig_original_map(mech).pdf", sep=""))
 ggmap(map)+ geom_path(data=flt, aes(x=lon, y=lat, group=id),
   colour=rep(col_mech(rake[indregion]),times=npt), lwd=1)
 dev.off()
