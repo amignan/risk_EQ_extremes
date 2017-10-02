@@ -40,6 +40,8 @@ rm(list=ls())
 library(shapefiles) #read.shapefile()
 library(maps)
 library(mapdata)
+library(ggplot2)
+library(ggmap)
 library(circular)   #circular()
 library(splancs)    #inpip()
 
@@ -392,13 +394,21 @@ for(i in 1:nflt){
 indregion <- which(flt.minx > region[1] & flt.maxy < region[4])
 nflt <- length(indregion)
 
-pdf(paste(wd, "/", figd, "/fig_original_map(mech).pdf", sep=""))
-map('worldHires', xlim=c(region[1],region[2]), ylim=c(region[3],region[4]))
-for(i in 1:nflt) lines(fltshp[[indregion[i]]]$points, col=col_mech(rake[indregion][i]))
-legend("bottomright", c("Rev","Norm","LL","RL"), col=c("red", "blue","purple","green"),
-       lty="solid", bg="white", cex=0.8)
-map.axes()
+#map faults
+npt <- numeric(nflt)
+flt <- data.frame(lon=c(),lat=c(),group=c())
+for(i in 1:nflt){
+  npt[i] <- nrow(fltshp[[indregion[i]]]$points)
+  flt <- rbind(flt, data.frame(lon=fltshp[[indregion[i]]]$points$X,
+    lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,npt[i])))
+}
+map <- get_map(location=c(region[1],region[3],region[2],region[4]), source='stamen',
+  maptype='watercolor', crop=T)
+pdf(paste(wd, "/", figd,"/fig_original_map(mech)_new.pdf", sep=""))
+ggmap(map)+ geom_path(data=flt, aes(x=lon, y=lat, group=id),
+  colour=rep(col_mech(rake[indregion]),times=npt), lwd=1)
 dev.off()
+
 
 #select Strike-Slip ruptures only
 indregion.SS <- which(((rake >= 315 | rake <= 45) | (rake >= 135 & rake <= 225)) &
