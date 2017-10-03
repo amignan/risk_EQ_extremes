@@ -71,10 +71,10 @@ col_mech <- function(rake){
 	indLL <- which(rake >= 315 | rake <= 45)
 	indRL <- which(rake >= 135 & rake <= 225)
 	col_mech <- character(length(rake))
-	col_mech[indR] <- rgb(240/255,128/255,116/255)
-	col_mech[indN] <- rgb(165/255,198/255,234/255)
-	col_mech[indLL] <- rgb(192/255,144/255,192/255)
-	col_mech[indRL] <- rgb(177/255,208/255,124/255)
+	col_mech[indR] <- "red3"
+	col_mech[indN] <- "slateblue2"
+	col_mech[indLL] <- "violetred3"
+	col_mech[indRL] <- "springgreen4"
 	return(col_mech)
 }
 
@@ -408,6 +408,7 @@ pdf(paste(wd, "/", figd,"/fig_original_map(mech).pdf", sep=""))
 ggmap(map)+ geom_path(data=flt, aes(x=lon, y=lat, group=id),
   colour=rep(col_mech(rake[indregion]),times=n), lwd=1)
 dev.off()
+
 
 
 #select Strike-Slip ruptures only
