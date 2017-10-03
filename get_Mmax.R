@@ -406,7 +406,7 @@ map <- get_map(location=c(region[1],region[3],region[2],region[4]), source='stam
   maptype='watercolor', crop=T)
 pdf(paste(wd, "/", figd,"/fig_original_map(mech).pdf", sep=""))
 ggmap(map)+ geom_path(data=flt, aes(x=lon, y=lat, group=id),
-  colour=rep(col_mech(rake[indregion]),times=npt), lwd=1)
+  colour=rep(col_mech(rake[indregion]),times=n), lwd=1)
 dev.off()
 
 
