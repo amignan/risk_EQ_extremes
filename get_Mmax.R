@@ -395,12 +395,12 @@ indregion <- which(flt.minx > region[1] & flt.maxy < region[4])
 nflt <- length(indregion)
 
 #map faults
-npt <- numeric(nflt)
+n <- numeric(nflt)
 flt <- data.frame(lon=c(),lat=c(),group=c())
 for(i in 1:nflt){
-  npt[i] <- nrow(fltshp[[indregion[i]]]$points)
+  n[i] <- nrow(fltshp[[indregion[i]]]$points)
   flt <- rbind(flt, data.frame(lon=fltshp[[indregion[i]]]$points$X,
-    lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,npt[i])))
+    lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,n[i])))
 }
 map <- get_map(location=c(region[1],region[3],region[2],region[4]), source='stamen',
   maptype='watercolor', crop=T)
