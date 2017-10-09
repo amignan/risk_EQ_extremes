@@ -25,8 +25,10 @@
 #2. Convert Lmax into maximum magnitude Mmax
 #
 #DEPENDENCIES:
-#FSBGmodelv6 data folder from SHARE project (ESHM13 DB)
-#must first be retrieved from: xxxx (see the ESHM13 DB licence there)
+#FSBGmodelv6.1 data folder from SHARE project (ESHM13 DB)
+#must first be retrieved from: 
+#http://portal.share-eu.org/en/Documentation/specific-hazard-models/europe/active-faults/
+#unzipped and moved to inputs folder
 #
 #HOW TO CITE:
 #Mignan, A., L. Danciu & D. Giardini (2015), Reassessment of the Maximum Fault
@@ -71,10 +73,10 @@ col_mech <- function(rake){
 	indLL <- which(rake >= 315 | rake <= 45)
 	indRL <- which(rake >= 135 & rake <= 225)
 	col_mech <- character(length(rake))
-	col_mech[indR] <- "red3"
-	col_mech[indN] <- "slateblue2"
-	col_mech[indLL] <- "violetred3"
-	col_mech[indRL] <- "springgreen4"
+	col_mech[indR] <- "red"
+	col_mech[indN] <- "gold"
+	col_mech[indLL] <- "yellow"
+	col_mech[indRL] <- "orange"
 	return(col_mech)
 }
 
@@ -369,7 +371,7 @@ npt <- 500                  #maximum number of points per cascade segment
 lmax <- 1500                #maximum length of rupture (km) for plot range
 
 #get ESHM13 data
-flt <- read.shapefile(paste(wd,"/inputs/FSBGmodelv6/FSBGModelV6.1_FaultSources", sep=""))
+flt <- read.shapefile(paste(wd,"/inputs/FSBGmodelv6.1/FSBGModelV6.1_FaultSources", sep=""))
 fltshp <- flt$shp$shp
 fltdbf <- flt$dbf$dbf
 nflt <- dim(fltdbf)[1]
@@ -395,26 +397,43 @@ indregion <- which(flt.minx > region[1] & flt.maxy < region[4])
 nflt <- length(indregion)
 
 #map faults
-n <- numeric(nflt)
+n_pflt <- numeric(nflt)
 flt <- data.frame(lon=c(),lat=c(),group=c())
 for(i in 1:nflt){
-  n[i] <- nrow(fltshp[[indregion[i]]]$points)
+  n_pflt[i] <- nrow(fltshp[[indregion[i]]]$points)
   flt <- rbind(flt, data.frame(lon=fltshp[[indregion[i]]]$points$X,
-    lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,n[i])))
+    lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,n_pflt[i])))
 }
-map <- get_map(location=c(region[1],region[3],region[2],region[4]), source='stamen',
-  maptype='watercolor', crop=T)
-pdf(paste(wd, "/", figd,"/fig_original_map(mech).pdf", sep=""))
-ggmap(map)+ geom_path(data=flt, aes(x=lon, y=lat, group=id),
-  colour=rep(col_mech(rake[indregion]),times=n), lwd=1)
+marg <- ceiling((region[2]-region[1])/(region[4]-region[3]))  #googlemap rescaling
+map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]+marg), source='google',
+  maptype='satellite', crop=T)
+pdf(paste(wd, "/", figd,"/fig_original_map(mechALL).pdf", sep=""))
+ggmap(map) +
+  geom_path(data=flt, aes(x=lon, y=lat, group=id),
+    colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
+  scale_x_continuous(limits=c(region[1],region[2])) +
+  scale_y_continuous(limits=c(region[3],region[4]))
 dev.off()
-
-
 
 #select Strike-Slip ruptures only
 indregion.SS <- which(((rake >= 315 | rake <= 45) | (rake >= 135 & rake <= 225)) &
   flt.minx > region[1] & flt.maxy < region[4])
 nflt.SS <- length(indregion.SS)
+
+n_pflt.SS <- numeric(nflt.SS)
+flt.SS <- data.frame(lon=c(),lat=c(),group=c())
+for(i in 1:nflt.SS){
+  n_pflt.SS[i] <- nrow(fltshp[[indregion.SS[i]]]$points)
+  flt.SS <- rbind(flt.SS, data.frame(lon=fltshp[[indregion.SS[i]]]$points$X,
+    lat=fltshp[[indregion.SS[i]]]$points$Y, id=rep(i,n_pflt.SS[i])))
+}
+pdf(paste(wd, "/", figd,"/fig_original_map(mechSS).pdf", sep=""))
+ggmap(map) +
+  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
+            colour=rep(col_mech(rake[indregion.SS]),times=n_pflt.SS), lwd=0.6) +
+  scale_x_continuous(limits=c(region[1],region[2])) +
+  scale_y_continuous(limits=c(region[3],region[4]))
+dev.off()
 
 #summary on direction of rupture propagation
 pdf(paste(wd, "/", figd, "/fig_original_propaStats.pdf", sep=""))
@@ -442,7 +461,7 @@ dev.off()
 
 
 
-## create cascades (SS only) ###
+## generate cascades (SS only) ###
 #get all subsegment coordinates for 1st round of calculation
 list_x <- c()
 list_y <- c()
@@ -517,7 +536,7 @@ for(round in 1:nround){
 nround <- round-2
 
 
-#### check Lmax in cascade rounds ####
+#check Lmax in cascade rounds
 casc.L <- numeric(ntot)
 casc.sliprate <- numeric(ntot)
 casc.coord <- numeric(2*ntot*npt); dim(casc.coord) <- c(2,ntot,npt); casc.coord[,,] <- NA
@@ -549,16 +568,19 @@ for(i in 1:nround){
 		kk <- kk+1
 	}
 }
+#Relationship from Anderson et al. 1996
 casc.M <- 5.12+1.16*log10(casc.L)-0.20*log10(casc.sliprate)
 
-#plot results
+
+
+## plot results ##
 ESHM13.L <- fltdbf$TOTALL[indregion.SS]
 ESHM13.Mmax <- fltdbf$MAXMW[indregion.SS]
 ESHM13.sliprate <- sliprate[indregion.SS]
 
 pdf(paste(wd, "/", figd, "/fig_cascades_Mmax.pdf", sep=""))
 plot(casc.L, casc.M, pch=20, col="black", xlab="Length(km)", ylab="Mmax", xlim=c(0,lmax),
-  ylim=c(6.5,9))          #Relationship from Anderson et al. 1996
+  ylim=c(6.5,9))
 points(ESHM13.L, ESHM13.Mmax, col="grey", pch=20)   #original
 
 li <- seq(1,lmax)
@@ -572,7 +594,7 @@ legend("bottomright", c("Cascades","Original","W&C94","M&B00","H&B02","L10","W08
   lty=c(0,0,seq(5)), pch=c(20,20,rep(NA,5)), col=c("black","grey",rep("black",5)), cex=0.8)
 dev.off()
 
-## Mmax maps ##
+#Mmax map (individual segments)
 ESHM13.Mmax.Anderson96 <- round( ( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) )*10)/10
 ind1 <- which(ESHM13.Mmax.Anderson96 >= 6.5 & ESHM13.Mmax.Anderson96 < 7)
 ind2 <- which(ESHM13.Mmax.Anderson96 >= 7 & ESHM13.Mmax.Anderson96 < 7.5)
@@ -587,12 +609,22 @@ col_mmax[ind4] <- "firebrick"
 col_mmax[ind5] <- "black"
 indsort <- sort(ESHM13.Mmax.Anderson96, index.return=T)$ix    #longer cascades on top of map
 
-pdf(paste(wd, "/", figd, "/fig_original_map(Mmax).pdf", sep=""))
-map('worldHires', xlim=c(region[1],region[2]), ylim=c(region[3],region[4]))
-for(i in 1:nflt.SS) lines(fltshp[[indregion.SS[indsort[i]]]]$points, col=col_mmax[indsort[i]],
-  lwd=2)
-map.axes()
+pdf(paste(wd, "/", figd,"/fig_original_map(Mmax).pdf", sep=""))
+ggmap(map) +
+  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
+            colour=rep(col_mmax, times=n_pflt.SS), lwd=0.6) +
+  scale_x_continuous(limits=c(region[1],region[2])) +
+  scale_y_continuous(limits=c(region[3],region[4]))
 dev.off()
+
+#Mmax map (cascades)
+n_pflt.cascSS <- numeric(ntot)
+flt.cascSS <- data.frame(lon=c(),lat=c(),group=c())
+for(i in 1:ntot){
+  n_pflt.cascSS[i] <- length(is.na(casc.coord[1,i,]))
+  flt.cascSS <- rbind(flt.cascSS, data.frame(lon=casc.coord[1,i,],
+    lat=casc.coord[2,i,], id=rep(i,n_pflt.cascSS[i])))
+}
 
 ind1 <- which(casc.M >= 6.5 & casc.M < 7)
 ind2 <- which(casc.M >= 7 & casc.M < 7.5)
@@ -600,21 +632,21 @@ ind3 <- which(casc.M >= 7.5 & casc.M < 8)
 ind4 <- which(casc.M >= 8 & casc.M < 8.5)
 ind5 <- which(casc.M >= 8.5)
 
-col_mmax <- character(ntot)
-col_mmax[ind1] <- "yellow"
-col_mmax[ind2] <- "orange"
-col_mmax[ind3] <- "red"
-col_mmax[ind4] <- "firebrick"
-col_mmax[ind5] <- "black"
-
+col_mmax2 <- character(ntot)
+col_mmax2[ind1] <- "yellow"
+col_mmax2[ind2] <- "orange"
+col_mmax2[ind3] <- "red"
+col_mmax2[ind4] <- "firebrick"
+col_mmax2[ind5] <- "black"
 indsort <- sort(casc.M, index.return=T)$ix
 
-pdf(paste(wd, "/", figd, "/fig_cascades_map(Mmax).pdf", sep=""))
-map('worldHires', xlim=c(region[1],region[2]), ylim=c(region[3],region[4]))
-for(i in 1:ntot) lines(casc.coord[1,indsort[i],], casc.coord[2,indsort[i],], col=col_mmax[indsort[i]], lwd=2)
-map.axes()
+pdf(paste(wd, "/", figd,"/fig_cascades_map(Mmax).pdf", sep=""))
+ggmap(map) +
+  geom_path(data=flt.cascSS, aes(x=lon, y=lat, group=id),
+            colour=rep(col_mmax2, times=n_pflt.cascSS), lwd=0.6) +
+  scale_x_continuous(limits=c(region[1],region[2])) +
+  scale_y_continuous(limits=c(region[3],region[4]))
 dev.off()
-
 
 
 
