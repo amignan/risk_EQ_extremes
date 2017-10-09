@@ -350,21 +350,7 @@ propa <- function(source.coord, source.param, init.coord, init.param, inddist, i
 	return(list(id_new=id_new))
 }
 
-col_mmax <- function(mmax){
-  ind1 <- which(mmax >= 6.5 & mmax < 7.0)
-  ind2 <- which(mmax >= 7.0 & mmax < 7.5)
-  ind3 <- which(mmax >= 7.5 & mmax < 8.0)
-  ind4 <- which(mmax >= 8.0 & mmax < 8.5)
-  ind5 <- which(mmax >= 8.5)
-  col <- character(length(mmax))
-  col[] <- "white"
-  if(length(ind1) != 0) col[ind1] <- "yellow"
-  if(length(ind2) != 0) col[ind2] <- "orange"
-  if(length(ind3) != 0) col[ind3] <- "red"
-  if(length(ind4) != 0) col[ind4] <- "firebrick"
-  if(length(ind5) != 0) col[ind5] <- "black"
-  return(col)
-}
+
 
 ## SETUP ##
 wd <- getwd()
@@ -426,8 +412,9 @@ map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]
 ggmap(map) +
   geom_path(data=flt, aes(x=lon, y=lat, group=id),
     colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
-  scale_x_continuous(limits=c(region[1],region[2])) +
-  scale_y_continuous(limits=c(region[3],region[4]))
+  scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
+  scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
+  labs(title="Fault mechanisms (all)", subtitle="Data: ESHM13")
 ggsave(paste(wd, "/", figd,"/segments_map(mechALL).pdf", sep=""))
 
 #select Strike-Slip ruptures only
@@ -446,8 +433,9 @@ for(i in 1:nflt.SS){
 ggmap(map) +
   geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
             colour=rep(col_mech(rake[indregion.SS]),times=n_pflt.SS), lwd=0.6) +
-  scale_x_continuous(limits=c(region[1],region[2])) +
-  scale_y_continuous(limits=c(region[3],region[4]))
+  scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
+  scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
+  labs(title="Fault mechanisms (strike-slip only)", subtitle="Data: ESHM13")
 ggsave(paste(wd, "/", figd,"/segments_map(mechSS).pdf", sep=""))
 
 #summary on direction of rupture propagation
@@ -612,13 +600,15 @@ dev.off()
 
 #Mmax map (individual segments)
 #Relationship from Anderson et al. 1996
-flt.SS$Mmax <- rep(round( ( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) )*10)/10,
+flt.SS$Mmax <- rep( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) ,
   times=n_pflt.SS)
 
 ggmap(map) +
-  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id), colour=col_mmax(flt.SS$Mmax), lwd=0.6) +
-  scale_x_continuous(limits=c(region[1],region[2])) +
-  scale_y_continuous(limits=c(region[3],region[4]))
+  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id, color=Mmax), lwd=0.6) +
+  scale_color_gradient(low="yellow", high="brown") +
+  scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
+  scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
+  labs(title="Individual ruptures", subtitle="Data: ESHM13", col=expression(M[max]))
 ggsave(paste(wd, "/", figd,"/segments_map(Mmax).pdf", sep=""))
 
 
@@ -633,12 +623,13 @@ for(i in 1:ntot){
 }
 flt.cascSS$Mmax <- rep(casc.M, times=n_pflt.cascSS)
 
-flt.cascSS_new <- flt.cascSS[order(flt.cascSS$Mmax),]     #supposed to map in Mmax order
+#flt.cascSS_new <- flt.cascSS[order(flt.cascSS$Mmax),]     #supposed to map in Mmax order
 ggmap(map) +
-  geom_path(data=flt.cascSS_new, aes(x=lon, y=lat, group=id),
-    colour=col_mmax(flt.cascSS_new$Mmax), lwd=0.6) +
-  scale_x_continuous(limits=c(region[1],region[2])) +
-  scale_y_continuous(limits=c(region[3],region[4]))
+  geom_path(data=flt.cascSS, aes(x=lon, y=lat, group=id, color=Mmax), lwd=0.6) +
+  scale_color_gradient(low="yellow", high="brown") +
+  scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
+  scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
+  labs(title="Cascading ruptures", subtitle="Data: ESHM13", col=expression(M[max]))
 ggsave(paste(wd, "/", figd,"/cascades_map(Mmax).pdf", sep=""))
 
 
