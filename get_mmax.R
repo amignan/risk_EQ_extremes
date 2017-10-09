@@ -350,6 +350,21 @@ propa <- function(source.coord, source.param, init.coord, init.param, inddist, i
 	return(list(id_new=id_new))
 }
 
+col_mmax <- function(mmax){
+  ind1 <- which(mmax >= 6.5 & mmax < 7.0)
+  ind2 <- which(mmax >= 7.0 & mmax < 7.5)
+  ind3 <- which(mmax >= 7.5 & mmax < 8.0)
+  ind4 <- which(mmax >= 8.0 & mmax < 8.5)
+  ind5 <- which(mmax >= 8.5)
+  col <- character(length(mmax))
+  col[] <- "white"
+  if(length(ind1) != 0) col[ind1] <- "yellow"
+  if(length(ind2) != 0) col[ind2] <- "orange"
+  if(length(ind3) != 0) col[ind3] <- "red"
+  if(length(ind4) != 0) col[ind4] <- "firebrick"
+  if(length(ind5) != 0) col[ind5] <- "black"
+  return(col)
+}
 
 ## SETUP ##
 wd <- getwd()
@@ -596,25 +611,16 @@ dev.off()
 
 #Mmax map (individual segments)
 ESHM13.Mmax.Anderson96 <- round( ( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) )*10)/10
-ind1 <- which(ESHM13.Mmax.Anderson96 >= 6.5 & ESHM13.Mmax.Anderson96 < 7)
-ind2 <- which(ESHM13.Mmax.Anderson96 >= 7 & ESHM13.Mmax.Anderson96 < 7.5)
-ind3 <- which(ESHM13.Mmax.Anderson96 >= 7.5 & ESHM13.Mmax.Anderson96 < 8)
-ind4 <- which(ESHM13.Mmax.Anderson96 >= 8 & ESHM13.Mmax.Anderson96 < 8.5)
-ind5 <- which(ESHM13.Mmax.Anderson96 >= 8.5)
-col_mmax <- character(nflt.SS)
-col_mmax[ind1] <- "yellow"
-col_mmax[ind2] <- "orange"
-col_mmax[ind3] <- "red"
-col_mmax[ind4] <- "firebrick"
-col_mmax[ind5] <- "black"
+
 indsort <- sort(ESHM13.Mmax.Anderson96, index.return=T)$ix    #longer cascades on top of map
 
 ggmap(map) +
   geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
-            colour=rep(col_mmax, times=n_pflt.SS), lwd=0.6) +
+            colour=rep(col_mmax(ESHM13.Mmax.Anderson96), times=n_pflt.SS), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
 ggsave(paste(wd, "/", figd,"/fig_segments_map(Mmax).pdf", sep=""))
+
 
 #Mmax map (cascades)
 n_pflt.cascSS <- numeric(ntot)
@@ -625,23 +631,11 @@ for(i in 1:ntot){
     lat=casc.coord[2,i,], id=rep(i,n_pflt.cascSS[i])))
 }
 
-ind1 <- which(casc.M >= 6.5 & casc.M < 7)
-ind2 <- which(casc.M >= 7 & casc.M < 7.5)
-ind3 <- which(casc.M >= 7.5 & casc.M < 8)
-ind4 <- which(casc.M >= 8 & casc.M < 8.5)
-ind5 <- which(casc.M >= 8.5)
-
-col_mmax2 <- character(ntot)
-col_mmax2[ind1] <- "yellow"
-col_mmax2[ind2] <- "orange"
-col_mmax2[ind3] <- "red"
-col_mmax2[ind4] <- "firebrick"
-col_mmax2[ind5] <- "black"
 indsort <- sort(casc.M, index.return=T)$ix
 
 ggmap(map) +
   geom_path(data=flt.cascSS, aes(x=lon, y=lat, group=id),
-            colour=rep(col_mmax2, times=n_pflt.cascSS), lwd=0.6) +
+            colour=rep(col_mmax(casc.M), times=n_pflt.cascSS), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
 ggsave(paste(wd, "/", figd,"/fig_cascades_map(Mmax).pdf", sep=""))
