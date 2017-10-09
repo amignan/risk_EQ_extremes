@@ -407,13 +407,13 @@ for(i in 1:nflt){
 marg <- ceiling((region[2]-region[1])/(region[4]-region[3]))  #googlemap rescaling
 map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]+marg), source='google',
   maptype='satellite', crop=T)
-pdf(paste(wd, "/", figd,"/fig_original_map(mechALL).pdf", sep=""))
+
 ggmap(map) +
   geom_path(data=flt, aes(x=lon, y=lat, group=id),
     colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-dev.off()
+ggsave(paste(wd, "/", figd,"/fig_segments_map(mechALL).pdf", sep=""))
 
 #select Strike-Slip ruptures only
 indregion.SS <- which(((rake >= 315 | rake <= 45) | (rake >= 135 & rake <= 225)) &
@@ -427,16 +427,16 @@ for(i in 1:nflt.SS){
   flt.SS <- rbind(flt.SS, data.frame(lon=fltshp[[indregion.SS[i]]]$points$X,
     lat=fltshp[[indregion.SS[i]]]$points$Y, id=rep(i,n_pflt.SS[i])))
 }
-pdf(paste(wd, "/", figd,"/fig_original_map(mechSS).pdf", sep=""))
+
 ggmap(map) +
   geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
             colour=rep(col_mech(rake[indregion.SS]),times=n_pflt.SS), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-dev.off()
+ggsave(paste(wd, "/", figd,"/fig_segments_map(mechSS).pdf", sep=""))
 
 #summary on direction of rupture propagation
-pdf(paste(wd, "/", figd, "/fig_original_propaStats.pdf", sep=""))
+pdf(paste(wd, "/", figd, "/fig_segments_propaStats.pdf", sep=""))
 par(mfrow=c(2,2))
 circ <- circular(rake[indregion], type="angle", units="degrees", rotation="counter")
 rose.diag(circ, bins=360/5, shrink=1, prop=2, main="Rake (all)")
@@ -609,13 +609,12 @@ col_mmax[ind4] <- "firebrick"
 col_mmax[ind5] <- "black"
 indsort <- sort(ESHM13.Mmax.Anderson96, index.return=T)$ix    #longer cascades on top of map
 
-pdf(paste(wd, "/", figd,"/fig_original_map(Mmax).pdf", sep=""))
 ggmap(map) +
   geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
             colour=rep(col_mmax, times=n_pflt.SS), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-dev.off()
+ggsave(paste(wd, "/", figd,"/fig_segments_map(Mmax).pdf", sep=""))
 
 #Mmax map (cascades)
 n_pflt.cascSS <- numeric(ntot)
@@ -640,13 +639,12 @@ col_mmax2[ind4] <- "firebrick"
 col_mmax2[ind5] <- "black"
 indsort <- sort(casc.M, index.return=T)$ix
 
-pdf(paste(wd, "/", figd,"/fig_cascades_map(Mmax).pdf", sep=""))
 ggmap(map) +
   geom_path(data=flt.cascSS, aes(x=lon, y=lat, group=id),
             colour=rep(col_mmax2, times=n_pflt.cascSS), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-dev.off()
+ggsave(paste(wd, "/", figd,"/fig_cascades_map(Mmax).pdf", sep=""))
 
 
 
