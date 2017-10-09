@@ -377,7 +377,7 @@ rad_earth <- 6378.1         #km
 lat_km <- rad_earth*pi/180  #assumed spherical
 
 region <- c(23,46,34,42)    #Anatolian region
-Delta <- 5                  #max distance threshold (km), 5km by default but can be higher
+Delta <- 10                  #max distance threshold (km), 5km by default but can be higher
 muD <- 0.12                 #dynamic friction coeff.
 delta <- 30                 #range of preferred orientation
 
@@ -419,16 +419,16 @@ for(i in 1:nflt){
   flt <- rbind(flt, data.frame(lon=fltshp[[indregion[i]]]$points$X,
     lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,n_pflt[i])))
 }
-marg <- ceiling((region[2]-region[1])/(region[4]-region[3]))  #googlemap rescaling
-map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]+marg), source='google',
-  maptype='satellite', crop=T)
+marg <- ceiling((region[2]-region[1])/(region[4]-region[3]))  #googlemap rescaling - portrait case
+map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]+marg),
+  source='google', maptype='satellite', crop=T)
 
 ggmap(map) +
   geom_path(data=flt, aes(x=lon, y=lat, group=id),
     colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-ggsave(paste(wd, "/", figd,"/fig_segments_map(mechALL).pdf", sep=""))
+ggsave(paste(wd, "/", figd,"/segments_map(mechALL).pdf", sep=""))
 
 #select Strike-Slip ruptures only
 indregion.SS <- which(((rake >= 315 | rake <= 45) | (rake >= 135 & rake <= 225)) &
@@ -448,10 +448,10 @@ ggmap(map) +
             colour=rep(col_mech(rake[indregion.SS]),times=n_pflt.SS), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-ggsave(paste(wd, "/", figd,"/fig_segments_map(mechSS).pdf", sep=""))
+ggsave(paste(wd, "/", figd,"/segments_map(mechSS).pdf", sep=""))
 
 #summary on direction of rupture propagation
-pdf(paste(wd, "/", figd, "/fig_segments_propaStats.pdf", sep=""))
+pdf(paste(wd, "/", figd, "/segments_propaStats.pdf", sep=""))
 par(mfrow=c(2,2))
 circ <- circular(rake[indregion], type="angle", units="degrees", rotation="counter")
 rose.diag(circ, bins=360/5, shrink=1, prop=2, main="Rake (all)")
@@ -593,7 +593,7 @@ ESHM13.L <- fltdbf$TOTALL[indregion.SS]
 ESHM13.Mmax <- fltdbf$MAXMW[indregion.SS]
 ESHM13.sliprate <- sliprate[indregion.SS]
 
-pdf(paste(wd, "/", figd, "/fig_cascades_Mmax.pdf", sep=""))
+pdf(paste(wd, "/", figd, "/cascades_plot(Mmax).pdf", sep=""))
 plot(casc.L, casc.M, pch=20, col="black", xlab="Length(km)", ylab="Mmax", xlim=c(0,lmax),
   ylim=c(6.5,9))
 points(ESHM13.L, ESHM13.Mmax, col="grey", pch=20)   #original
@@ -609,36 +609,36 @@ legend("bottomright", c("Cascades","Original","W&C94","M&B00","H&B02","L10","W08
   lty=c(0,0,seq(5)), pch=c(20,20,rep(NA,5)), col=c("black","grey",rep("black",5)), cex=0.8)
 dev.off()
 
-#Mmax map (individual segments)
-ESHM13.Mmax.Anderson96 <- round( ( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) )*10)/10
 
-indsort <- sort(ESHM13.Mmax.Anderson96, index.return=T)$ix    #longer cascades on top of map
+#Mmax map (individual segments)
+#Relationship from Anderson et al. 1996
+flt.SS$Mmax <- rep(round( ( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) )*10)/10,
+  times=n_pflt.SS)
 
 ggmap(map) +
-  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
-            colour=rep(col_mmax(ESHM13.Mmax.Anderson96), times=n_pflt.SS), lwd=0.6) +
+  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id), colour=col_mmax(flt.SS$Mmax), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-ggsave(paste(wd, "/", figd,"/fig_segments_map(Mmax).pdf", sep=""))
+ggsave(paste(wd, "/", figd,"/segments_map(Mmax).pdf", sep=""))
 
 
 #Mmax map (cascades)
 n_pflt.cascSS <- numeric(ntot)
 flt.cascSS <- data.frame(lon=c(),lat=c(),group=c())
 for(i in 1:ntot){
-  n_pflt.cascSS[i] <- length(is.na(casc.coord[1,i,]))
-  flt.cascSS <- rbind(flt.cascSS, data.frame(lon=casc.coord[1,i,],
-    lat=casc.coord[2,i,], id=rep(i,n_pflt.cascSS[i])))
+  n_pflt.cascSS[i] <- length(which(is.na(casc.coord[1,i,]) == F))
+  if(n_pflt.cascSS[i] > 0) flt.cascSS <- rbind(flt.cascSS,
+    data.frame(lon=casc.coord[1,i,(1:n_pflt.cascSS[i])],
+    lat=casc.coord[2,i,(1:n_pflt.cascSS[i])], id=rep(i,n_pflt.cascSS[i])))
 }
+flt.cascSS$Mmax <- rep(casc.M, times=n_pflt.cascSS)
 
-indsort <- sort(casc.M, index.return=T)$ix
-
+flt.cascSS_new <- flt.cascSS[order(flt.cascSS$Mmax),]     #supposed to map in Mmax order
 ggmap(map) +
-  geom_path(data=flt.cascSS, aes(x=lon, y=lat, group=id),
-            colour=rep(col_mmax(casc.M), times=n_pflt.cascSS), lwd=0.6) +
+  geom_path(data=flt.cascSS_new, aes(x=lon, y=lat, group=id),
+    colour=col_mmax(flt.cascSS_new$Mmax), lwd=0.6) +
   scale_x_continuous(limits=c(region[1],region[2])) +
   scale_y_continuous(limits=c(region[3],region[4]))
-ggsave(paste(wd, "/", figd,"/fig_cascades_map(Mmax).pdf", sep=""))
-
+ggsave(paste(wd, "/", figd,"/cascades_map(Mmax).pdf", sep=""))
 
 
