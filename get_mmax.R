@@ -25,12 +25,14 @@
 #2. Convert Lmax into maximum magnitude Mmax
 #
 #DEPENDENCIES:
-#FSBGmodelv6.1 data folder from SHARE project (ESHM13 DB)
-#must first be retrieved from: 
-#http://portal.share-eu.org/en/Documentation/specific-hazard-models/europe/active-faults/
-#unzipped and moved to inputs folder
+#fault segment data folder to be uploaded first in the inputs folder
+#region = "ESHM13": FSBGmodelv6.1 data folder (European Seismic Hazard Model 2013)
+# from SHARE project (ESHM13 DB) publicly available at:
+# http://portal.share-eu.org/en/Documentation/specific-hazard-models/europe/active-faults/
+#region = "EMME": emme_fs_model data folder (Middle East Seismic Hazard Model)
+# not public yet
 #
-#HOW TO CITE:
+#CITATION:
 #Mignan, A., L. Danciu & D. Giardini (2015), Reassessment of the Maximum Fault
 #Rupture Length of Strike-Slip Earthquakes and Inference on Mmax in the 
 #Anatolian Peninsula, Turkey, Seismol. Res. Lett., 86, 890-900, doi: 
@@ -362,8 +364,9 @@ if(!file.exists(figd)) dir.create(figd)
 rad_earth <- 6378.1         #km
 lat_km <- rad_earth*pi/180  #assumed spherical
 
+model <- "ESHM13"           #fault model: ESHM13, EMME
 region <- c(23,46,34,42)    #Anatolian region
-Delta <- 10                  #max distance threshold (km), 5km by default but can be higher
+Delta <- 10                 #max distance threshold (km), 5km by default but can be higher
 muD <- 0.12                 #dynamic friction coeff.
 delta <- 30                 #range of preferred orientation
 
@@ -371,8 +374,11 @@ nround <- 15                #maximum number of loops, nround approx. to number o
 npt <- 500                  #maximum number of points per cascade segment
 lmax <- 1500                #maximum length of rupture (km) for plot range
 
-#get ESHM13 data
-flt <- read.shapefile(paste(wd,"/inputs/FSBGmodelv6.1/FSBGModelV6.1_FaultSources", sep=""))
+#get fault model data
+if(model == "ESHM13") flt <-
+  read.shapefile(paste(wd,"/inputs/FSBGmodelv6.1/FSBGModelV6.1_FaultSources", sep=""))
+if(model == "EMME") flt <-
+  read.shapefile(paste(wd,"/inputs/emme_fs_model/fs_model_ver07", sep=""))
 fltshp <- flt$shp$shp
 fltdbf <- flt$dbf$dbf
 nflt <- dim(fltdbf)[1]
@@ -414,7 +420,7 @@ ggmap(map) +
     colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Fault mechanisms (all)", subtitle="Data: ESHM13")
+  labs(title="Fault mechanisms (all)", subtitle=paste("Data: ", model, sep=""))
 ggsave(paste(wd, "/", figd,"/segments_map(mechALL).pdf", sep=""))
 
 #select Strike-Slip ruptures only
@@ -435,7 +441,8 @@ ggmap(map) +
             colour=rep(col_mech(rake[indregion.SS]),times=n_pflt.SS), lwd=0.6) +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Fault mechanisms (strike-slip only)", subtitle="Data: ESHM13")
+  labs(title="Fault mechanisms (strike-slip only)", subtitle=paste("Data: ",
+    model, sep=""))
 ggsave(paste(wd, "/", figd,"/segments_map(mechSS).pdf", sep=""))
 
 #summary on direction of rupture propagation
@@ -577,14 +584,14 @@ casc.M <- 5.12+1.16*log10(casc.L)-0.20*log10(casc.sliprate)
 
 
 ## plot results ##
-ESHM13.L <- fltdbf$TOTALL[indregion.SS]
-ESHM13.Mmax <- fltdbf$MAXMW[indregion.SS]
-ESHM13.sliprate <- sliprate[indregion.SS]
+orig.L <- fltdbf$TOTALL[indregion.SS]
+orig.Mmax <- fltdbf$MAXMW[indregion.SS]
+orig.sliprate <- sliprate[indregion.SS]
 
 pdf(paste(wd, "/", figd, "/cascades_plot(Mmax).pdf", sep=""))
 plot(casc.L, casc.M, pch=20, col="black", xlab="Length(km)", ylab="Mmax", xlim=c(0,lmax),
   ylim=c(6.5,9))
-points(ESHM13.L, ESHM13.Mmax, col="grey", pch=20)   #original
+points(orig.L, orig.Mmax, col="grey", pch=20)   #original
 
 li <- seq(1,lmax)
 mi <- L2M(li,round(mean(fltdbf$TOTALW[indregion.SS])))
@@ -600,7 +607,7 @@ dev.off()
 
 #Mmax map (individual segments)
 #Relationship from Anderson et al. 1996
-flt.SS$Mmax <- rep( 5.12+1.16*log10(ESHM13.L)-0.20*log10(ESHM13.sliprate) ,
+flt.SS$Mmax <- rep( 5.12+1.16*log10(orig.L)-0.20*log10(orig.sliprate),
   times=n_pflt.SS)
 
 ggmap(map) +
@@ -608,7 +615,8 @@ ggmap(map) +
   scale_color_gradient(low="yellow", high="brown") +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Individual ruptures", subtitle="Data: ESHM13", col=expression(M[max]))
+  labs(title="Individual ruptures", subtitle=paste("Data: ", model, sep=""),
+    col=expression(M[max]))
 ggsave(paste(wd, "/", figd,"/segments_map(Mmax).pdf", sep=""))
 
 
