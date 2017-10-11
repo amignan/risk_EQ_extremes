@@ -364,9 +364,10 @@ if(!file.exists(figd)) dir.create(figd)
 rad_earth <- 6378.1         #km
 lat_km <- rad_earth*pi/180  #assumed spherical
 
-model <- "ESHM13"           #fault model: ESHM13, EMME
-region <- c(23,46,34,42)    #Anatolian region
-Delta <- 10                 #max distance threshold (km), 5km by default but can be higher
+model <- "EMME"           #fault model: ESHM13, EMME
+#region <- c(23,46,34,42)    #Anatolian region (minlon,maxlon,minlat,maxlat)
+region <- c(24,75,23.5,44.5)  #EMME region
+Delta <- 5                 #max distance threshold (km), 5km by default but can be higher
 muD <- 0.12                 #dynamic friction coeff.
 delta <- 30                 #range of preferred orientation
 
@@ -377,17 +378,23 @@ lmax <- 1500                #maximum length of rupture (km) for plot range
 #get fault model data
 if(model == "ESHM13") flt <-
   read.shapefile(paste(wd,"/inputs/FSBGmodelv6.1/FSBGModelV6.1_FaultSources", sep=""))
+  #List of column names:
+  #IDBG IDSOURCE FAULTTYPE TECTOTYPE TECTOCODE TECREG PREFERRED MINDEPTH
+  #MAXDEPTH STRIKEMIN STRIKEMAX DIPMIN DIPMAX RAKEMIN RAKEMAX MWORIGINAL MINMW
+  #MAXMW RANGE MEANMW STDEVMW WMEANMW WSTDEVMW NMAGVAL MWDIFF TOTALL STRAIGHTL
+  #TOTALW TOTALA STRAIGHTA ASPECTRATI EFFECTIVEA EFFECTIVEL SRMIN SRMAX
 if(model == "EMME") flt <-
   read.shapefile(paste(wd,"/inputs/emme_fs_model/fs_model_ver07", sep=""))
+  #List of column names:
+  #IDSOURCE FAULTTYPE   BGRVAL  AGRVAL TECTOTYPE RAKEMIN RAKEMAX DIPMIN DIPMAX STRIKEMIN
+  #STRIKEMAX MINDEPTH MAXDEPTH UC_MIN MC_MIN   SRMIN   SRMAX SRMAX01 SRMAX02 SRMAX03
+  #WSRMAX01 WSRMAX02 WSRMAX03  WSRMAX   MAXMAG ASPECTRATI CLASS    LENGTH     WIDTH
+  #IDSOURCE_2  SRMIN_2  SRMAX_2  WMEANMW RP_GT7
+
 fltshp <- flt$shp$shp
 fltdbf <- flt$dbf$dbf
 nflt <- dim(fltdbf)[1]
 nparam <- dim(fltdbf)[2]
-#List of column names:
-#IDBG IDSOURCE FAULTTYPE TECTOTYPE TECTOCODE TECREG PREFERRED MINDEPTH
-#MAXDEPTH STRIKEMIN STRIKEMAX DIPMIN DIPMAX RAKEMIN RAKEMAX MWORIGINAL MINMW
-#MAXMW RANGE MEANMW STDEVMW WMEANMW WSTDEVMW NMAGVAL MWDIFF TOTALL STRAIGHTL
-#TOTALW TOTALA STRAIGHTA ASPECTRATI EFFECTIVEA EFFECTIVEL SRMIN SRMAX
 strike <- ((fltdbf$STRIKEMIN+fltdbf$STRIKEMAX)/2)%%180
 rake <- (fltdbf$RAKEMIN+fltdbf$RAKEMAX)/2
 dip <- (fltdbf$DIPMIN+fltdbf$DIPMAX)/2
@@ -520,8 +527,8 @@ for(round in 1:nround){
   	}
   	if(round > 1){
   		indinit <- which(cascade.coord$id == i+(round-1)*10000)
-  		init.coord <- data.frame(id=cascade.coord$id[indinit], x=cascade.coord$x[indinit],
-  		  y=cascade.coord$y[indinit])
+  		init.coord <- unique( data.frame(id=cascade.coord$id[indinit], x=cascade.coord$x[indinit],
+  		  y=cascade.coord$y[indinit]) )
   		indinit <- which(cascade.param$id == i+(round-1)*10000)
   		init.param <- list(id=cascade.param$id[indinit], strike=cascade.param$strike[indinit],
   		  rake=cascade.param$rake[indinit], parts=as.character(cascade.param$parts[indinit]))
@@ -584,9 +591,17 @@ casc.M <- 5.12+1.16*log10(casc.L)-0.20*log10(casc.sliprate)
 
 
 ## plot results ##
-orig.L <- fltdbf$TOTALL[indregion.SS]
-orig.Mmax <- fltdbf$MAXMW[indregion.SS]
-orig.sliprate <- sliprate[indregion.SS]
+if(model == "ESHM13"){
+  orig.L <- fltdbf$TOTALL[indregion.SS]
+  orig.Mmax <- fltdbf$MAXMW[indregion.SS]
+  orig.sliprate <- sliprate[indregion.SS]
+}
+if(model == "EMME"){
+  orig.L <- fltdbf$LENGTH[indregion.SS]
+  orig.Mmax <- fltdbf$MAXMAG[indregion.SS]
+  orig.sliprate <- sliprate[indregion.SS]
+}
+
 
 pdf(paste(wd, "/", figd, "/cascades_plot(Mmax).pdf", sep=""))
 plot(casc.L, casc.M, pch=20, col="black", xlab="Length(km)", ylab="Mmax", xlim=c(0,lmax),
