@@ -364,10 +364,10 @@ if(!file.exists(figd)) dir.create(figd)
 rad_earth <- 6378.1         #km
 lat_km <- rad_earth*pi/180  #assumed spherical
 
-model <- "EMME"           #fault model: ESHM13, EMME
-#region <- c(23,46,34,42)    #Anatolian region (minlon,maxlon,minlat,maxlat)
-region <- c(24,75,23.5,44.5)  #EMME region
-Delta <- 5                 #max distance threshold (km), 5km by default but can be higher
+model <- "ESHM13"           #fault model: ESHM13, EMME14
+region <- c(23,46,34,42)    #Anatolian region (minlon,maxlon,minlat,maxlat)
+#region <- c(24,75,23.5,44.5)  #EMME14 region
+Delta <- 10                 #max distance threshold (km), 5km by default but can be higher
 muD <- 0.12                 #dynamic friction coeff.
 delta <- 30                 #range of preferred orientation
 
@@ -383,7 +383,7 @@ if(model == "ESHM13") flt <-
   #MAXDEPTH STRIKEMIN STRIKEMAX DIPMIN DIPMAX RAKEMIN RAKEMAX MWORIGINAL MINMW
   #MAXMW RANGE MEANMW STDEVMW WMEANMW WSTDEVMW NMAGVAL MWDIFF TOTALL STRAIGHTL
   #TOTALW TOTALA STRAIGHTA ASPECTRATI EFFECTIVEA EFFECTIVEL SRMIN SRMAX
-if(model == "EMME") flt <-
+if(model == "EMME14") flt <-
   read.shapefile(paste(wd,"/inputs/emme_fs_model/fs_model_ver07", sep=""))
   #List of column names:
   #IDSOURCE FAULTTYPE   BGRVAL  AGRVAL TECTOTYPE RAKEMIN RAKEMAX DIPMIN DIPMAX STRIKEMIN
@@ -595,11 +595,13 @@ if(model == "ESHM13"){
   orig.L <- fltdbf$TOTALL[indregion.SS]
   orig.Mmax <- fltdbf$MAXMW[indregion.SS]
   orig.sliprate <- sliprate[indregion.SS]
+  orig.W <- round(mean(fltdbf$TOTALW[indregion.SS]))
 }
-if(model == "EMME"){
+if(model == "EMME14"){
   orig.L <- fltdbf$LENGTH[indregion.SS]
   orig.Mmax <- fltdbf$MAXMAG[indregion.SS]
   orig.sliprate <- sliprate[indregion.SS]
+  orig.W <- round(mean(fltdbf$WIDTH[indregion.SS]))
 }
 
 
@@ -609,7 +611,7 @@ plot(casc.L, casc.M, pch=20, col="black", xlab="Length(km)", ylab="Mmax", xlim=c
 points(orig.L, orig.Mmax, col="grey", pch=20)   #original
 
 li <- seq(1,lmax)
-mi <- L2M(li,round(mean(fltdbf$TOTALW[indregion.SS])))
+mi <- L2M(li,orig.W)
 lines(li, mi$WC, lty=1)		#"solid"
 lines(li, mi$MB, lty=2)		#"dashed"
 lines(li, mi$HB, lty=3)		#"dotted"
@@ -652,7 +654,8 @@ ggmap(map) +
   scale_color_gradient(low="yellow", high="brown") +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Cascading ruptures", subtitle="Data: ESHM13", col=expression(M[max]))
+  labs(title="Cascading ruptures", subtitle=paste("Data: ", model, sep=""),
+    col=expression(M[max]))
 ggsave(paste(wd, "/", figd,"/cascades_map(Mmax).pdf", sep=""))
 
 
