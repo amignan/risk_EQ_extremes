@@ -46,6 +46,8 @@ library(maps)
 library(mapdata)
 library(ggplot2)
 library(ggmap)
+library(reshape2)   #melt()
+library(gridExtra)  #grid.arrange()
 library(circular)   #circular()
 library(splancs)    #inpip()
 
@@ -99,7 +101,7 @@ L2M <- function(L,W){
   m.L <- aL*log10(L)+bL
   #Wesnousky 2008 SS
   m.W <- 5.56+0.87*log10(L)
-  return(list(WC=m.WC, MB=m.MB, HB=m.HB, L=m.L, W=m.W))
+  return(list(WC94=m.WC, MB00=m.MB, HB02=m.HB, L10=m.L, W08=m.W))
 }
 
 jump <- function(source.coord, source.param, init.coord, init.param, Delta){
@@ -367,13 +369,12 @@ lat_km <- rad_earth*pi/180  #assumed spherical
 model <- "ESHM13"           #fault model: ESHM13, EMME14
 region <- c(23,46,34,42)    #Anatolian region (minlon,maxlon,minlat,maxlat)
 #region <- c(24,75,23.5,44.5)  #EMME14 region
-Delta <- 10                 #max distance threshold (km), 5km by default but can be higher
+Delta <- 5                 #max distance threshold (km), 5km by default but can be higher
 muD <- 0.12                 #dynamic friction coeff.
 delta <- 30                 #range of preferred orientation
 
 nround <- 15                #maximum number of loops, nround approx. to number of merged segments
 npt <- 500                  #maximum number of points per cascade segment
-lmax <- 1500                #maximum length of rupture (km) for plot range
 
 #get fault model data
 if(model == "ESHM13") flt <-
@@ -594,47 +595,50 @@ casc.M <- 5.12+1.16*log10(casc.L)-0.20*log10(casc.sliprate)
 if(model == "ESHM13"){
   orig.L <- fltdbf$TOTALL[indregion.SS]
   orig.Mmax <- fltdbf$MAXMW[indregion.SS]
-  orig.sliprate <- sliprate[indregion.SS]
   orig.W <- round(mean(fltdbf$TOTALW[indregion.SS]))
 }
 if(model == "EMME14"){
   orig.L <- fltdbf$LENGTH[indregion.SS]
   orig.Mmax <- fltdbf$MAXMAG[indregion.SS]
-  orig.sliprate <- sliprate[indregion.SS]
   orig.W <- round(mean(fltdbf$WIDTH[indregion.SS]))
 }
-
-
-pdf(paste(wd, "/", figd, "/cascades_plot(Mmax).pdf", sep=""))
-plot(casc.L, casc.M, pch=20, col="black", xlab="Length(km)", ylab="Mmax", xlim=c(0,lmax),
-  ylim=c(6.5,9))
-points(orig.L, orig.Mmax, col="grey", pch=20)   #original
-
-li <- seq(1,lmax)
-mi <- L2M(li,orig.W)
-lines(li, mi$WC, lty=1)		#"solid"
-lines(li, mi$MB, lty=2)		#"dashed"
-lines(li, mi$HB, lty=3)		#"dotted"
-lines(li, mi$L, lty=4)		#"dotdash"
-lines(li, mi$W, lty=5)		#"longdash"
-legend("bottomright", c("Cascades","Original","W&C94","M&B00","H&B02","L10","W08"),
-  lty=c(0,0,seq(5)), pch=c(20,20,rep(NA,5)), col=c("black","grey",rep("black",5)), cex=0.8)
-dev.off()
-
+orig.sliprate <- sliprate[indregion.SS]
 
 #Mmax map (individual segments)
 #Relationship from Anderson et al. 1996
-flt.SS$Mmax <- rep( 5.12+1.16*log10(orig.L)-0.20*log10(orig.sliprate),
-  times=n_pflt.SS)
+orig.M <- 5.12+1.16*log10(orig.L)-0.20*log10(orig.sliprate)
+flt.SS$Mmax <- rep(orig.M, times=n_pflt.SS)
 
-ggmap(map) +
+plot.lmax <- max(casc.L)
+plot.mmin <- min(orig.M)
+plot.mmax <- max(casc.M)
+dat.orig <- data.frame(L=orig.L, Mmax=orig.M)
+dat.new <- data.frame(L=casc.L, Mmax=casc.M)
+li <- seq(1,plot.lmax)
+dat.rel <- L2M(li,orig.W)
+dat.rel.long <- melt(dat.rel)
+dat.rel.long$L <- rep(li, times=5)
+
+pdf(paste(wd, "/", figd, "/segments_Mmax.pdf", sep=""))
+g1 <- ggmap(map) +
   geom_path(data=flt.SS, aes(x=lon, y=lat, group=id, color=Mmax), lwd=0.6) +
-  scale_color_gradient(low="yellow", high="brown") +
+  scale_color_gradient(low="yellow", high="brown", limits=c(plot.mmin,plot.mmax)) +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Individual ruptures", subtitle=paste("Data: ", model, sep=""),
+  labs(title="Map of individual segment ruptures", subtitle=paste("Data: ", model, sep=""),
     col=expression(M[max]))
-ggsave(paste(wd, "/", figd,"/segments_map(Mmax).pdf", sep=""))
+
+g2 <- ggplot() +
+  geom_point(data=dat.orig, aes(x=L, y=Mmax, col=Mmax), show.legend=F) +
+  geom_path(data=dat.rel.long, aes(x=L, y=value, lty=L1), alpha=.2) +
+  scale_x_continuous(limits = c(0, plot.lmax)) +
+  scale_y_continuous(limits = c(plot.mmin, plot.mmax)) +
+  scale_color_gradient(low="yellow", high="brown", limits=c(plot.mmin,plot.mmax)) +
+  theme_minimal() +
+  labs(title="Length-magnitude relationship", x="Rupture length (km)", y=expression(M[max]),
+    subtitle="Conversion based on Anderson et al. (1996)", lty="Ref.")
+grid.arrange(g1,g2, ncol=1, nrow=2)
+dev.off()
 
 
 #Mmax map (cascades)
@@ -649,13 +653,23 @@ for(i in 1:ntot){
 flt.cascSS$Mmax <- rep(casc.M, times=n_pflt.cascSS)
 
 #flt.cascSS_new <- flt.cascSS[order(flt.cascSS$Mmax),]     #supposed to map in Mmax order
-ggmap(map) +
+pdf(paste(wd, "/", figd, "/cascades_Mmax.pdf", sep=""))
+g1 <- ggmap(map) +
   geom_path(data=flt.cascSS, aes(x=lon, y=lat, group=id, color=Mmax), lwd=0.6) +
-  scale_color_gradient(low="yellow", high="brown") +
+  scale_color_gradient(low="yellow", high="brown", limits=c(plot.mmin,plot.mmax)) +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Cascading ruptures", subtitle=paste("Data: ", model, sep=""),
+  labs(title="Map of cascading ruptures", subtitle=paste("Data: ", model, sep=""),
     col=expression(M[max]))
-ggsave(paste(wd, "/", figd,"/cascades_map(Mmax).pdf", sep=""))
-
+g2 <- ggplot() +
+  geom_point(data=dat.new, aes(x=L, y=Mmax, col=Mmax), show.legend=F) +
+  geom_path(data=dat.rel.long, aes(x=L, y=value, lty=L1), alpha=.2) +
+  scale_x_continuous(limits = c(0, plot.lmax)) +
+  scale_y_continuous(limits = c(plot.mmin, plot.mmax)) +
+  scale_color_gradient(low="yellow", high="brown", limits=c(plot.mmin,plot.mmax)) +
+  theme_minimal() +
+  labs(title="Length-magnitude relationship", x="Rupture length (km)", y=expression(M[max]),
+       subtitle="Conversion based on Anderson et al. (1996)", lty="Ref.")
+grid.arrange(g1,g2, ncol=1, nrow=2)
+dev.off()
 
