@@ -48,7 +48,6 @@ library(ggplot2)
 library(ggmap)
 library(reshape2)   #melt()
 library(gridExtra)  #grid.arrange()
-library(circular)   #circular()
 library(splancs)    #inpip()
 
 
@@ -373,7 +372,7 @@ Delta <- 5                 #max distance threshold (km), 5km by default but can 
 muD <- 0.12                 #dynamic friction coeff.
 delta <- 30                 #range of preferred orientation
 
-nround <- 15                #maximum number of loops, nround approx. to number of merged segments
+nround <- 15                #maximum number of loops, nround approx. to no. of merged segments
 npt <- 500                  #maximum number of points per cascade segment
 
 #get fault model data
@@ -411,7 +410,6 @@ for(i in 1:nflt){
 indregion <- which(flt.minx > region[1] & flt.maxy < region[4])
 nflt <- length(indregion)
 
-#map faults
 n_pflt <- numeric(nflt)
 flt <- data.frame(lon=c(),lat=c(),group=c())
 for(i in 1:nflt){
@@ -419,21 +417,10 @@ for(i in 1:nflt){
   flt <- rbind(flt, data.frame(lon=fltshp[[indregion[i]]]$points$X,
     lat=fltshp[[indregion[i]]]$points$Y, id=rep(i,n_pflt[i])))
 }
-marg <- ceiling((region[2]-region[1])/(region[4]-region[3]))  #googlemap rescaling - portrait case
-map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]+marg),
-  source='google', maptype='satellite', crop=T)
-
-ggmap(map) +
-  geom_path(data=flt, aes(x=lon, y=lat, group=id),
-    colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
-  scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
-  scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Fault mechanisms (all)", subtitle=paste("Data: ", model, sep=""))
-ggsave(paste(wd, "/", figd,"/segments_map(mechALL).pdf", sep=""))
 
 #select Strike-Slip ruptures only
 indregion.SS <- which(((rake >= 315 | rake <= 45) | (rake >= 135 & rake <= 225)) &
-  flt.minx > region[1] & flt.maxy < region[4])
+                        flt.minx > region[1] & flt.maxy < region[4])
 nflt.SS <- length(indregion.SS)
 
 n_pflt.SS <- numeric(nflt.SS)
@@ -441,40 +428,51 @@ flt.SS <- data.frame(lon=c(),lat=c(),group=c())
 for(i in 1:nflt.SS){
   n_pflt.SS[i] <- nrow(fltshp[[indregion.SS[i]]]$points)
   flt.SS <- rbind(flt.SS, data.frame(lon=fltshp[[indregion.SS[i]]]$points$X,
-    lat=fltshp[[indregion.SS[i]]]$points$Y, id=rep(i,n_pflt.SS[i])))
+                                     lat=fltshp[[indregion.SS[i]]]$points$Y, id=rep(i,n_pflt.SS[i])))
 }
 
-ggmap(map) +
-  geom_path(data=flt.SS, aes(x=lon, y=lat, group=id),
-            colour=rep(col_mech(rake[indregion.SS]),times=n_pflt.SS), lwd=0.6) +
+
+#map faults
+marg <- ceiling((region[2]-region[1])/(region[4]-region[3]))  #googlemap rescaling - portrait case
+map <- get_map(location=c(region[1]-marg,region[3]-marg,region[2]+marg,region[4]+marg),
+  source='google', maptype='satellite', crop=T)
+
+pdf(paste(wd, "/", figd,"/segments_Mech.pdf", sep=""))
+g1 <- ggmap(map) +
+  geom_path(data=flt, aes(x=lon, y=lat, group=id),
+    colour=rep(col_mech(rake[indregion]),times=n_pflt), lwd=0.6) +
   scale_x_continuous("Longitude", limits=c(region[1],region[2])) +
   scale_y_continuous("Latitude", limits=c(region[3],region[4])) +
-  labs(title="Fault mechanisms (strike-slip only)", subtitle=paste("Data: ",
-    model, sep=""))
-ggsave(paste(wd, "/", figd,"/segments_map(mechSS).pdf", sep=""))
+  labs(title="Map of fault mechanisms", subtitle=paste("Data: ", model, sep=""))
 
-#summary on direction of rupture propagation
-pdf(paste(wd, "/", figd, "/segments_propaStats.pdf", sep=""))
-par(mfrow=c(2,2))
-circ <- circular(rake[indregion], type="angle", units="degrees", rotation="counter")
-rose.diag(circ, bins=360/5, shrink=1, prop=2, main="Rake (all)")
-
-circ <- circular(rake[indregion.SS], type="angle", units="degrees", rotation="counter")
-rose.diag(circ, bins=360/5, shrink=1, prop=1.5, main="Rake (SS)")
+dat.mech <- data.frame(rake=rake[indregion], mech=mech(rake[indregion]))
+g2 <- ggplot(data=dat.mech, aes(x=rake, fill=mech)) +
+  geom_histogram(binwidth=10) +
+  coord_polar() +
+  scale_fill_manual(values=c("yellow","gold","red","orange")) +
+  scale_x_continuous(limits=c(0,360)) +
+  theme_minimal() +
+  labs(title="Fault mechanism distribution", x=expression(paste("Rake (", degree, ")", sep="")),
+    y="Number of segments", fill="Mechanism", subtitle="LL: left-lateral, N: normal,
+    R: reverse, RL: right-lateral")
 
 Psi <- (rake[indregion.SS]/2+45)%%90        #angle between segment & Smax direction
-circ <- circular(Psi, type="angle", units="degrees", rotation="counter")
-rose.diag(circ, bins=360/5, shrink=1, prop=1.5, main="Psi (SS)")
+psi <- (45-Psi-180*atan(muD)/(2*pi))        #optimal angle for rupture, gamma=1 for RL
+dat.dyn <- data.frame(psi=c(psi,psi-delta,psi+delta),
+  range=c(rep("med",nflt.SS), rep("min",nflt.SS), rep("max",nflt.SS)))
+g3 <- ggplot(data=dat.dyn, aes(x=psi, fill=range)) +
+  geom_histogram(binwidth=10) +
+  coord_polar() +
+  scale_x_continuous(limits=c(-180,180)) +
+  theme_minimal() +
+  scale_fill_manual(expression(paste(phi, " range", sep="")), values=c("sienna3","sienna2","sienna1"),
+    labels=c(expression(psi-delta),expression(psi),expression(psi+delta)),
+    breaks=c("min","med","max")) +
+  labs(title=expression(paste("Max. strike difference ", phi, " distribution"), sep=""),
+    subtitle="Strike-slip only, LL & RL", x=expression(paste(phi, " (", degree, ")", sep="")),
+    y="Number of segments")
 
-psi <- (45-Psi-180*atan(muD)/(2*pi))  #optimal angle for rupture, gamma=1 for RL
-psi_p <- psi+delta
-psi_m <- psi-delta
-circ <- circular(psi, type="angle", units="degrees", rotation="counter")
-circ2 <- circular(psi_p, type="angle", units="degrees", rotation="counter")
-circ3 <- circular(psi_m, type="angle", units="degrees", rotation="counter")
-rose.diag(circ2, bins=360/5, shrink=1, prop=1.5, col="red", main="psi")
-rose.diag(circ3, bins=360/5, shrink=1, prop=1.5, add=T, col="blue")
-rose.diag(circ, bins=360/5, shrink=1, prop=1.5, add=T, col="purple")
+grid.arrange(g1, arrangeGrob(g2,g3, ncol=2), nrow=2)
 dev.off()
 
 
